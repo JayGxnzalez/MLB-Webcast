@@ -1,0 +1,13 @@
+{
+    "name": "MLB WebCast",
+    "description": "Live MLB streams — HOME & AWAY for all 30 teams via mlbwebcast.com",
+    "version": "1.0.0",
+    "iconUrl": "https://github.com/JayGxnzalez/MLB-Webcast/blob/main/MLBWC.png?raw=true",
+    "baseUrl": "https://mlbwebcast.com",
+    "searchUrl": "https://mlbwebcast.com",
+    "asyncJS": true,
+    "language": "en",
+    "searchable": true,
+    "stream": true,
+    "type": "live"
+}
