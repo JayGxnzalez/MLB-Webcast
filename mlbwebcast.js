@@ -96,11 +96,18 @@ function teamLogo(abbr) {
 function formatGameTime(dateStr) {
     try {
         var d = new Date(dateStr);
-        var h = d.getUTCHours();
-        var m = d.getUTCMinutes();
+        // Convert to PT (UTC-7 during PDT, UTC-8 during PST)
+        // Use UTC-7 for Mar-Nov (roughly PDT), UTC-8 otherwise
+        var month = d.getUTCMonth(); // 0-indexed
+        var isDST = month >= 2 && month <= 10; // Mar-Nov
+        var offset = isDST ? -7 : -8;
+        var ptMs = d.getTime() + offset * 3600000;
+        var pt = new Date(ptMs);
+        var h = pt.getUTCHours();
+        var m = pt.getUTCMinutes();
         var ampm = h >= 12 ? "PM" : "AM";
         h = h % 12 || 12;
-        return h + ":" + (m < 10 ? "0" + m : m) + " " + ampm + " ET";
+        return h + ":" + (m < 10 ? "0" + m : m) + " " + ampm + " PT";
     } catch (e) { return ""; }
 }
 
@@ -115,9 +122,13 @@ function buildGameInfo(comp) {
 
         var status = comp.status.type;
         var statusStr = "";
-        if (status.state === "in") statusStr = status.detail;
-        else if (status.state === "pre") statusStr = formatGameTime(comp.date);
-        else statusStr = "Final";
+        if (status.state === "in") {
+            statusStr = "LIVE";
+        } else if (status.state === "pre") {
+            statusStr = formatGameTime(comp.date);
+        } else {
+            statusStr = "Finished";
+        }
 
         var awayRecord = "";
         var homeRecord = "";
@@ -135,24 +146,11 @@ function buildGameInfo(comp) {
 
         // Build description
         var parts = [];
-        parts.push(status.state === "in" ? "\uD83D\uDD34 LIVE \u2014 " + statusStr : "\u23F0 " + statusStr);
+        parts.push(statusStr === "LIVE" ? "Status: LIVE" : statusStr === "Finished" ? "Status: Finished" : "Time: " + statusStr);
         parts.push("\uD83C\uDFDF " + comp.venue.fullName + ", " + comp.venue.address.city);
         parts.push(away.team.displayName + " (" + awayRecord + ") @ " + home.team.displayName + " (" + homeRecord + ")");
 
-        // Starters
-        var awayStarter = "", homeStarter = "";
-        for (var p = 0; p < (away.probables || []).length; p++) {
-            awayStarter = away.probables[p].athlete.shortName + " " + (away.probables[p].record || "");
-        }
-        for (var p = 0; p < (home.probables || []).length; p++) {
-            homeStarter = home.probables[p].athlete.shortName + " " + (home.probables[p].record || "");
-        }
-        if (awayStarter || homeStarter) {
-            parts.push("\u26BE SP: " + (awayStarter || "TBD") + " vs " + (homeStarter || "TBD"));
-        }
 
-        // Broadcast
-        if (comp.broadcast) parts.push("\uD83D\uDCFA " + comp.broadcast);
 
         return {
             title: away.team.shortDisplayName + " @ " + home.team.shortDisplayName,
@@ -201,9 +199,8 @@ async function searchResults(keyword) {
             var homeSlug = info.homeSlug || "";
             var watchUrl = homeSlug ? "https://mlbwebcast.com/" + homeSlug + "/" : "";
             if (!watchUrl) continue;
-            var statusLabel = info.statusState === "in" ? "\uD83D\uDD34 " : "\u23F0 ";
             results.push({
-                title: statusLabel + info.title + " \u2014 " + info.statusStr,
+                title: info.title + " - " + info.statusStr,
                 image: info.image,
                 href: watchUrl
             });
@@ -252,7 +249,7 @@ async function extractDetails(url) {
 
         if (info) {
             var scoreStr = info.statusState === "in" || info.statusState === "post"
-                ? info.awayAbbr + " " + info.awayScore + " \u2014 " + info.homeAbbr + " " + info.homeScore
+                ? info.awayAbbr + " " + info.awayScore + " - " + info.homeAbbr + " " + info.homeScore
                 : "";
             return JSON.stringify([{
                 title: info.title + (scoreStr ? " (" + scoreStr + ")" : ""),
@@ -287,12 +284,11 @@ async function extractEpisodes(url) {
         var homeMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>[\s\S]{0,300}?HOME/);
         var awayMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>[\s\S]{0,300}?AWAY/);
 
-        var sources = [];
-        if (homeMatch) sources.push({ title: "HOME", url: homeMatch[1] });
-        if (awayMatch) sources.push({ title: "AWAY", url: awayMatch[1] });
+        var episodes = [];
+        if (homeMatch) episodes.push({ number: 1, title: "HOME", href: homeMatch[1] });
+        if (awayMatch) episodes.push({ number: 2, title: "AWAY", href: awayMatch[1] });
 
-        if (sources.length === 0) return JSON.stringify([]);
-        return JSON.stringify([{ number: 1, title: "Live Stream", href: url, sources: sources }]);
+        return JSON.stringify(episodes);
     } catch (e) {
         return JSON.stringify([]);
     }
