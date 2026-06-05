@@ -284,33 +284,52 @@ async function extractEpisodes(url) {
         var homeMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>[\s\S]{0,300}?HOME/);
         var awayMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>[\s\S]{0,300}?AWAY/);
 
-        var episodes = [];
-        if (homeMatch) episodes.push({ number: 1, title: "HOME", href: homeMatch[1] });
-        if (awayMatch) episodes.push({ number: 2, title: "AWAY", href: awayMatch[1] });
+        if (!homeMatch && !awayMatch) return JSON.stringify([]);
 
-        return JSON.stringify(episodes);
+        // Encode both URLs into href separated by | so extractStreamUrl can fetch both
+        var homeUrl = homeMatch ? homeMatch[1] : "";
+        var awayUrl = awayMatch ? awayMatch[1] : "";
+        var combinedHref = homeUrl + "|" + awayUrl;
+
+        return JSON.stringify([{ number: 1, title: "Live Stream", href: combinedHref }]);
     } catch (e) {
         return JSON.stringify([]);
     }
 }
 
+async function fetchStreamFromHtml(htmlUrl) {
+    try {
+        htmlUrl = htmlUrl.split("?")[0];
+        var res = await soraFetch(htmlUrl, { headers: { "User-Agent": UA, "Referer": "https://mlbwebcast.com/" } });
+        var html = await getText(res);
+        var dMatch = html.match(/var\s+_d\s*=\s*\[(\d+)\s*,\s*'([^']+)'\s*,\s*'([^']+)'\]/);
+        if (!dMatch) return null;
+        var base = htmlUrl.substring(0, htmlUrl.lastIndexOf("/") + 1);
+        var checkUrl = base + "check_stream.php?id=" + dMatch[1] + "&ts=" + dMatch[2] + "&pt=" + dMatch[3];
+        var checkRes = await soraFetch(checkUrl, { headers: { "Referer": htmlUrl, "User-Agent": UA } });
+        var data = await getJson(checkRes);
+        return (data && data.url) ? data.url : null;
+    } catch (e) { return null; }
+}
+
 async function extractStreamUrl(url) {
     try {
-        url = url.split("?")[0];
-        var res = await soraFetch(url, { headers: { "User-Agent": UA, "Referer": "https://mlbwebcast.com/" } });
-        var html = await getText(res);
+        var streams = [];
+        var parts = url.split("|");
+        var homeUrl = parts[0] || "";
+        var awayUrl = parts[1] || "";
 
-        var dMatch = html.match(/var\s+_d\s*=\s*\[(\d+)\s*,\s*'([^']+)'\s*,\s*'([^']+)'\]/);
-        if (!dMatch) return JSON.stringify(null);
+        if (homeUrl) {
+            var m3u8 = await fetchStreamFromHtml(homeUrl);
+            if (m3u8) streams.push({ url: m3u8, quality: "HOME", subtitles: [], headers: {} });
+        }
+        if (awayUrl) {
+            var m3u8 = await fetchStreamFromHtml(awayUrl);
+            if (m3u8) streams.push({ url: m3u8, quality: "AWAY", subtitles: [], headers: {} });
+        }
 
-        var base = url.substring(0, url.lastIndexOf("/") + 1);
-        var checkUrl = base + "check_stream.php?id=" + dMatch[1] + "&ts=" + dMatch[2] + "&pt=" + dMatch[3];
-
-        var checkRes = await soraFetch(checkUrl, { headers: { "Referer": url, "User-Agent": UA } });
-        var data = await getJson(checkRes);
-
-        if (!data || !data.url) return JSON.stringify(null);
-        return JSON.stringify({ streams: [{ url: data.url, quality: "HD", subtitles: [], headers: {} }], subtitles: [] });
+        if (streams.length === 0) return JSON.stringify(null);
+        return JSON.stringify({ streams: streams, subtitles: [] });
     } catch (e) {
         return JSON.stringify(null);
     }
