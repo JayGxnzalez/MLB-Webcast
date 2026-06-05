@@ -134,11 +134,11 @@ async function searchResults(keyword) {
         } catch (e) {}
         if (results.length === 0) {
             for (var i = 0; i < TEAMS.length; i++) {
-                var url = "https://mlbwebcast.com/" + TEAMS[i].slug + "/";
-                results.push({ title: TEAMS[i].name, image: TEAM_LOGOS[TEAMS[i].slug] || ICON, href: url });
+                var url2 = "https://mlbwebcast.com/" + TEAMS[i].slug + "/";
+                results.push({ title: TEAMS[i].name, image: TEAM_LOGOS[TEAMS[i].slug] || ICON, href: url2 });
             }
         }
-        return results;
+        return JSON.stringify(results);
     }
 
     for (var i = 0; i < TEAMS.length; i++) {
@@ -147,7 +147,7 @@ async function searchResults(keyword) {
             results.push({ title: TEAMS[i].name, image: TEAM_LOGOS[TEAMS[i].slug] || ICON, href: url });
         }
     }
-    return results;
+    return JSON.stringify(results);
 }
 
 async function extractDetails(url) {
@@ -163,9 +163,9 @@ async function extractDetails(url) {
 
         var description = matchupMatch ? matchupMatch[0] : "Live MLB stream \u2014 HOME and AWAY feeds available.";
 
-        return [{ title: title, image: logoFromUrl(url), description: description, aliases: "MLB WebCast", airdate: "Live", href: url }];
+        return JSON.stringify([{ title: title, image: logoFromUrl(url), description: description, aliases: "MLB WebCast", airdate: "Live", href: url }]);
     } catch (e) {
-        return [{ title: "MLB Stream", image: ICON, description: "Live MLB stream.", aliases: "MLB WebCast", airdate: "Live", href: url }];
+        return JSON.stringify([{ title: "MLB Stream", image: ICON, description: "Live MLB stream.", aliases: "MLB WebCast", airdate: "Live", href: url }]);
     }
 }
 
@@ -203,9 +203,9 @@ async function extractEpisodes(url) {
         if (homeMatch) episodes.push({ number: 1, title: "HOME", href: homeMatch[1], image: pageLogo });
         if (awayMatch) episodes.push({ number: 2, title: "AWAY", href: awayMatch[1], image: otherLogo });
 
-        return episodes;
+        return JSON.stringify(episodes);
     } catch (e) {
-        return [];
+        return JSON.stringify([]);
     }
 }
 
@@ -216,7 +216,7 @@ async function extractStreamUrl(url) {
         var html = await getText(res);
 
         var dMatch = html.match(/var\s+_d\s*=\s*\[(\d+)\s*,\s*'([^']+)'\s*,\s*'([^']+)'\]/);
-        if (!dMatch) return null;
+        if (!dMatch) return JSON.stringify(null);
 
         var base = url.substring(0, url.lastIndexOf("/") + 1);
         var checkUrl = base + "check_stream.php?id=" + dMatch[1] + "&ts=" + dMatch[2] + "&pt=" + dMatch[3];
@@ -224,9 +224,9 @@ async function extractStreamUrl(url) {
         var checkRes = await soraFetch(checkUrl, { headers: { "Referer": url, "User-Agent": UA } });
         var data = await getJson(checkRes);
 
-        if (!data || !data.url) return null;
-        return { streams: [{ url: data.url, quality: "HD", subtitles: [], headers: {} }], subtitles: [] };
+        if (!data || !data.url) return JSON.stringify(null);
+        return JSON.stringify({ streams: [{ url: data.url, quality: "HD", subtitles: [], headers: {} }], subtitles: [] });
     } catch (e) {
-        return null;
+        return JSON.stringify(null);
     }
 }
