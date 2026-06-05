@@ -321,11 +321,11 @@ async function extractStreamUrl(url) {
 
         if (homeUrl) {
             var m3u8 = await fetchStreamFromHtml(homeUrl);
-            if (m3u8) streams.push({ url: m3u8, quality: "HOME", subtitles: [], headers: {} });
+            if (m3u8) streams.push({ url: m3u8, quality: "HD", title: "HOME", subtitles: [], headers: {} });
         }
         if (awayUrl) {
             var m3u8 = await fetchStreamFromHtml(awayUrl);
-            if (m3u8) streams.push({ url: m3u8, quality: "AWAY", subtitles: [], headers: {} });
+            if (m3u8) streams.push({ url: m3u8, quality: "HD", title: "AWAY", subtitles: [], headers: {} });
         }
 
         if (streams.length === 0) return JSON.stringify(null);
