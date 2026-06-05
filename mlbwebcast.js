@@ -93,14 +93,15 @@ async function searchResults(keyword) {
         try {
             var res = await soraFetch("https://mlbwebcast.com/");
             var html = await getText(res);
-            var scheduleRegex = /(\d{1,2}:\d{2})[^\n]*?\[([^\]]+)\]\((https:\/\/mlbwebcast\.com\/[^)]+)\)[^\n]*?\[Watch\]/g;
+            // Match markdown table rows: | TIME | ... | ... | [Title](url) | [Watch](url) |
+            var scheduleRegex = /\|\s*(\d{1,2}:\d{2})\s*\|[^|]*\|[^|]*\|\s*\[([^\]]+)\]\([^)]+\)\s*\|\s*\[Watch\]\(([^)]+)\)/g;
             var match;
             while ((match = scheduleRegex.exec(html)) !== null) {
                 var time = match[1];
-                var title = match[2].replace(/\s+(?:Jan|Feb|Mar|Apr|May|Jun|July?|Aug|Sep|Oct|Nov|Dec)\w*\s+\d+,?\s*\d{4}$/i, "").trim();
+                var title = match[2].replace(/\s+(?:Jan|Feb|Mar|Apr|May|Jun|July?|Aug|Sep|Oct|Nov|Dec)\w*\.?\s+\d+,?\s*\d{4}$/i, "").trim();
                 var watchUrl = match[3];
                 results.push({
-                    title: time + " — " + title,
+                    title: time + " \u2014 " + title,
                     image: ICON,
                     href: watchUrl
                 });
@@ -144,8 +145,8 @@ async function extractEpisodes(url) {
 
         var episodes = [];
 
-        var homeMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>\s*HOME/);
-        var awayMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>\s*AWAY/);
+        var homeMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>[\s\S]*?HOME/);
+        var awayMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>[\s\S]*?AWAY/);
 
         if (homeMatch) {
             episodes.push({ href: homeMatch[1], number: 1, title: "HOME" });
@@ -162,6 +163,7 @@ async function extractEpisodes(url) {
 
 async function extractStreamUrl(url) {
     try {
+        url = url.split("?")[0];
         var res = await soraFetch(url, {
             headers: { "Referer": "https://mlbwebcast.com/" },
             method: "GET",
