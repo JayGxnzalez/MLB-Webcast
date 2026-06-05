@@ -321,15 +321,15 @@ async function extractStreamUrl(url) {
 
         if (homeUrl) {
             var m3u8 = await fetchStreamFromHtml(homeUrl);
-            if (m3u8) streams.push({ url: m3u8, quality: "HD", title: "HOME", subtitles: [], headers: {} });
+            if (m3u8) streams.push({ title: "HOME", streamUrl: m3u8, headers: {} });
         }
         if (awayUrl) {
             var m3u8 = await fetchStreamFromHtml(awayUrl);
-            if (m3u8) streams.push({ url: m3u8, quality: "HD", title: "AWAY", subtitles: [], headers: {} });
+            if (m3u8) streams.push({ title: "AWAY", streamUrl: m3u8, headers: {} });
         }
 
         if (streams.length === 0) return JSON.stringify(null);
-        return JSON.stringify({ streams: streams, subtitles: [] });
+        return JSON.stringify({ streams: streams, subtitles: "" });
     } catch (e) {
         return JSON.stringify(null);
     }
