@@ -299,6 +299,13 @@ async function extractEpisodes(url) {
     }
 }
 
+function teamNameFromUrl(htmlUrl) {
+    var m = htmlUrl.match(/\/([^\/]+)\.html$/);
+    if (!m) return "";
+    var name = m[1].replace(/[0-9]+$/, "").replace(/-/g, " ");
+    return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 async function fetchStreamFromHtml(htmlUrl) {
     try {
         htmlUrl = htmlUrl.split("?")[0];
@@ -323,11 +330,11 @@ async function extractStreamUrl(url) {
 
         if (homeUrl) {
             var m3u8 = await fetchStreamFromHtml(homeUrl);
-            if (m3u8) streams.push({ title: "HOME", streamUrl: m3u8, headers: {} });
+            if (m3u8) streams.push({ title: teamNameFromUrl(homeUrl), streamUrl: m3u8, headers: {} });
         }
         if (awayUrl) {
             var m3u8 = await fetchStreamFromHtml(awayUrl);
-            if (m3u8) streams.push({ title: "AWAY", streamUrl: m3u8, headers: {} });
+            if (m3u8) streams.push({ title: teamNameFromUrl(awayUrl), streamUrl: m3u8, headers: {} });
         }
 
         if (streams.length === 0) return JSON.stringify(null);
