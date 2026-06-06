@@ -251,11 +251,9 @@ async function extractDetails(url) {
             var scoreStr = info.statusState === "in" || info.statusState === "post"
                 ? info.awayAbbr + " " + info.awayScore + " - " + info.homeAbbr + " " + info.homeScore
                 : "";
-            var bannerImage = "https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/scoreboard/" + info.awayAbbr.toLowerCase() + ".png&img=/i/teamlogos/mlb/500/scoreboard/" + info.homeAbbr.toLowerCase() + ".png&w=1200&h=400";
             return JSON.stringify([{
                 title: info.title + (scoreStr ? " (" + scoreStr + ")" : ""),
                 image: info.image,
-                bannerImage: bannerImage,
                 description: info.description,
                 aliases: scoreStr || "Upcoming",
                 airdate: info.statusStr,
@@ -283,8 +281,10 @@ async function extractEpisodes(url) {
         var res = await soraFetch(url, { headers: { "User-Agent": UA } });
         var html = await getText(res);
 
-        var homeMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>[\s\S]{0,300}?HOME/);
-        var awayMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>[\s\S]{0,300}?AWAY/);
+        // Match anchor tag where the visible text is exactly HOME or AWAY
+        // Structure: <a href="...html"...><span...></span>&nbsp;HOME</a>
+        var homeMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*><span[^>]*>[^<]*<\/span>[^A-Z]*HOME/);
+        var awayMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*><span[^>]*>[^<]*<\/span>[^A-Z]*AWAY/);
 
         if (!homeMatch && !awayMatch) return JSON.stringify([]);
 
