@@ -281,17 +281,20 @@ async function extractEpisodes(url) {
         var res = await soraFetch(url, { headers: { "User-Agent": UA } });
         var html = await getText(res);
 
-        // Match anchor tag where the visible text is exactly HOME or AWAY
-        // Structure: <a href="...html"...><span...></span>&nbsp;HOME</a>
+        // Match all stream HTML links with their button labels (HOME, AWAY, LINK 3, LINK 4)
         var homeMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*><span[^>]*>[^<]*<\/span>[^A-Z]*HOME/);
         var awayMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*><span[^>]*>[^<]*<\/span>[^A-Z]*AWAY/);
+        var link3Match = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*><span[^>]*>[^<]*<\/span>[^A-Z]*LINK 3/);
+        var link4Match = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*><span[^>]*>[^<]*<\/span>[^A-Z]*LINK 4/);
 
-        if (!homeMatch && !awayMatch) return JSON.stringify([]);
+        if (!homeMatch && !awayMatch && !link3Match && !link4Match) return JSON.stringify([]);
 
-        // Encode both URLs into href separated by | so extractStreamUrl can fetch both
+        // Encode all URLs into href separated by | (positions: home|away|link3|link4)
         var homeUrl = homeMatch ? homeMatch[1] : "";
         var awayUrl = awayMatch ? awayMatch[1] : "";
-        var combinedHref = homeUrl + "|" + awayUrl;
+        var link3Url = link3Match ? link3Match[1] : "";
+        var link4Url = link4Match ? link4Match[1] : "";
+        var combinedHref = homeUrl + "|" + awayUrl + "|" + link3Url + "|" + link4Url;
 
         return JSON.stringify([{ number: 1, title: "Live Stream", href: combinedHref }]);
     } catch (e) {
@@ -321,12 +324,49 @@ async function fetchStreamFromHtml(htmlUrl) {
     } catch (e) { return null; }
 }
 
+async function fetchEmbedStream(htmlUrl) {
+    // Resolve the streams.center embed chain: html -> embed/chXX.php -> hls.php -> m3u8
+    try {
+        htmlUrl = htmlUrl.split("?")[0];
+        var res = await soraFetch(htmlUrl, { headers: { "User-Agent": UA, "Referer": "https://mlbwebcast.com/" } });
+        var html = await getText(res);
+
+        // Extract streams.center embed URL
+        var embedMatch = html.match(/(https?:)?\/\/streams\.center\/embed\/(ch\d+\.php)/);
+        if (!embedMatch) return null;
+        var embedUrl = "https://streams.center/embed/" + embedMatch[2];
+
+        var embedRes = await soraFetch(embedUrl, { headers: { "User-Agent": UA, "Referer": htmlUrl } });
+        var embedHtml = await getText(embedRes);
+
+        // Extract hls.php URL
+        var hlsMatch = embedHtml.match(/(https?:)?\/\/streams\.center\/embed\/(hls\.php\?stream=[^"'\s)]+)/);
+        if (!hlsMatch) return null;
+        var hlsUrl = "https://streams.center/embed/" + hlsMatch[2];
+
+        var hlsRes = await soraFetch(hlsUrl, { headers: { "User-Agent": UA, "Referer": embedUrl } });
+        var hlsHtml = await getText(hlsRes);
+
+        // Extract final m3u8 (mainstreams.pro or similar)
+        var m3u8Match = hlsHtml.match(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/);
+        if (m3u8Match) return { url: m3u8Match[1], referer: hlsUrl };
+
+        // Sometimes the m3u8 is built from a source variable
+        var srcMatch = hlsHtml.match(/source\s*[:=]\s*["']([^"']+\.m3u8[^"']*)["']/);
+        if (srcMatch) return { url: srcMatch[1], referer: hlsUrl };
+
+        return null;
+    } catch (e) { return null; }
+}
+
 async function extractStreamUrl(url) {
     try {
         var streams = [];
         var parts = url.split("|");
         var homeUrl = parts[0] || "";
         var awayUrl = parts[1] || "";
+        var link3Url = parts[2] || "";
+        var link4Url = parts[3] || "";
 
         if (homeUrl) {
             var m3u8 = await fetchStreamFromHtml(homeUrl);
@@ -335,6 +375,14 @@ async function extractStreamUrl(url) {
         if (awayUrl) {
             var m3u8 = await fetchStreamFromHtml(awayUrl);
             if (m3u8) streams.push({ title: teamNameFromUrl(awayUrl), streamUrl: m3u8, headers: {} });
+        }
+        if (link3Url) {
+            var alt = await fetchEmbedStream(link3Url);
+            if (alt) streams.push({ title: "Alt 1", streamUrl: alt.url, headers: { "Referer": alt.referer, "User-Agent": UA } });
+        }
+        if (link4Url) {
+            var alt2 = await fetchEmbedStream(link4Url);
+            if (alt2) streams.push({ title: "Alt 2", streamUrl: alt2.url, headers: { "Referer": alt2.referer, "User-Agent": UA } });
         }
 
         if (streams.length === 0) return JSON.stringify(null);
