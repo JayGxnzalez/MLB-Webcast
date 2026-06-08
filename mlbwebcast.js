@@ -282,10 +282,10 @@ async function extractEpisodes(url) {
         var html = await getText(res);
 
         // Match all stream HTML links with their button labels (HOME, AWAY, LINK 3, LINK 4)
-        var homeMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*><span[^>]*>[^<]*<\/span>[^A-Z]*HOME/);
-        var awayMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*><span[^>]*>[^<]*<\/span>[^A-Z]*AWAY/);
-        var link3Match = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*><span[^>]*>[^<]*<\/span>[^A-Z]*LINK 3/);
-        var link4Match = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*><span[^>]*>[^<]*<\/span>[^A-Z]*LINK 4/);
+        var homeMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>[\s\S]{0,200}?HOME/);
+        var awayMatch = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>[\s\S]{0,200}?AWAY/);
+        var link3Match = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>[\s\S]{0,200}?LINK 3/);
+        var link4Match = html.match(/href="(https:\/\/mlbwebcast\.com\/stream\/[^"]+\.html)[^"]*"[^>]*>[\s\S]{0,200}?LINK 4/);
 
         if (!homeMatch && !awayMatch && !link3Match && !link4Match) return JSON.stringify([]);
 
